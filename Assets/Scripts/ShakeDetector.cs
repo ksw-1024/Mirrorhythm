@@ -8,132 +8,93 @@ public class ShakeDetector : MonoBehaviour
     public Text shakeCountText;
     
     [SerializeField] private float shakeThreshold = 1.5f;
-    [SerializeField] private float cooldownTime = 0.3f; // 連続シェイク対応のため短縮
+    [SerializeField] private float cooldownTime = 0.3f;
     [SerializeField] private bool debugMode = true;
     [SerializeField] private AudioClip shakeSound;
-    [SerializeField] private bool allowSoundOverlap = false; // サウンド重複許可フラグ
+    [SerializeField] private bool allowSoundOverlap = false;
 
     private Vector3 currentAcceleration;
     private Vector3 previousAcceleration;
     private float lastShakeTime;
-    private float lastSoundPlayTime; // 音声再生時間を別途管理
-    
+    private float lastSoundPlayTime;
     private Accelerometer accelerometer;
     private AudioSource audioSource;
 
     void Start()
     {
-        InitializeAccelerometer();
-        InitializeAudio();
+        SetupComponents();
         UpdateShakeCountText();
-        
-        if (debugMode)
-            Debug.Log("ShakeDetector initialized");
+        LogDebug("ShakeDetector initialized");
     }
 
     void Update()
     {
 #if UNITY_EDITOR
-        HandleEditorInput();
+        if (Keyboard.current?.spaceKey.wasPressedThisFrame == true)
+            OnShakeDetected();
 #else
-        DetectShake();
+        CheckForShake();
 #endif
     }
 
-    private void InitializeAccelerometer()
+    private void SetupComponents()
+    {
+        SetupAccelerometer();
+        SetupAudio();
+    }
+
+    private void SetupAccelerometer()
     {
         accelerometer = Accelerometer.current;
         
         if (accelerometer != null)
         {
             InputSystem.EnableDevice(accelerometer);
-            currentAcceleration = accelerometer.acceleration.ReadValue();
-            previousAcceleration = currentAcceleration;
-            
-            if (debugMode)
-                Debug.Log("Accelerometer available");
+            currentAcceleration = previousAcceleration = accelerometer.acceleration.ReadValue();
+            LogDebug("Accelerometer available");
         }
-        else if (debugMode)
+        else
         {
-            Debug.LogWarning("Accelerometer not available");
+            LogDebug("Accelerometer not available", true);
         }
     }
 
-    private void InitializeAudio()
+    private void SetupAudio()
     {
-        audioSource = GetComponent<AudioSource>();
-        if (audioSource == null)
-        {
-            audioSource = gameObject.AddComponent<AudioSource>();
-        }
+        audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
         
         if (shakeSound != null)
         {
             audioSource.clip = shakeSound;
             audioSource.playOnAwake = false;
         }
-        else if (debugMode)
+        else
         {
-            Debug.LogWarning("Shake sound not assigned");
+            LogDebug("Shake sound not assigned", true);
         }
     }
 
-#if UNITY_EDITOR
-    private void HandleEditorInput()
+    private void CheckForShake()
     {
-        if (Keyboard.current?.spaceKey.wasPressedThisFrame == true)
-        {
-            RegisterShake();
-            if (debugMode) 
-                Debug.Log("Test shake executed");
-        }
-    }
-#endif
-
-    private void DetectShake()
-    {
-        if (accelerometer == null || !CanDetectShake()) 
+        if (accelerometer == null || Time.time - lastShakeTime <= cooldownTime) 
             return;
         
-        UpdateAcceleration();
+        previousAcceleration = currentAcceleration;
+        currentAcceleration = accelerometer.acceleration.ReadValue();
         
         float accelerationChange = (currentAcceleration - previousAcceleration).magnitude;
         
         if (accelerationChange > shakeThreshold)
-        {
-            RegisterShake();
-            return;
-        }
-        
-        if (debugMode)
-        {
-            Debug.Log($"Acceleration change: {accelerationChange}");
-        }
+            OnShakeDetected();
     }
 
-    private bool CanDetectShake()
+    private void OnShakeDetected()
     {
-        return Time.time - lastShakeTime > cooldownTime;
-    }
-
-    private void UpdateAcceleration()
-    {
-        previousAcceleration = currentAcceleration;
-        currentAcceleration = accelerometer.acceleration.ReadValue();
-    }
-
-    private void RegisterShake()
-    {
-        if (debugMode)
-            Debug.Log($"RegisterShake called - Current time: {Time.time}");
-            
         ShakeCount++;
         lastShakeTime = Time.time;
         UpdateShakeCountText();
         PlayShakeSound();
-        
-        if (debugMode)
-            Debug.Log($"Shake registered! Total: {ShakeCount}");
+        LogDebug($"Shake detected! Total: {ShakeCount}");
     }
 
     private void PlayShakeSound()
@@ -141,30 +102,29 @@ public class ShakeDetector : MonoBehaviour
         if (audioSource == null || shakeSound == null) 
             return;
 
-        float soundCooldown = allowSoundOverlap ? 0.1f : (shakeSound.length * 0.8f); // 音声の80%経過後に次の再生を許可
+        float soundCooldown = allowSoundOverlap ? 0.1f : shakeSound.length * 0.8f;
+        bool canPlaySound = Time.time - lastSoundPlayTime > soundCooldown;
         
-        if (Time.time - lastSoundPlayTime > soundCooldown)
+        if (canPlaySound && (allowSoundOverlap || !audioSource.isPlaying))
         {
-            if (allowSoundOverlap || !audioSource.isPlaying)
-            {
-                audioSource.PlayOneShot(shakeSound); // PlayOneShotで重複再生対応
-                lastSoundPlayTime = Time.time;
-                
-                if (debugMode)
-                    Debug.Log($"Shake sound played at {Time.time}");
-            }
-        }
-        else if (debugMode)
-        {
-            Debug.Log($"Sound cooldown active, remaining: {soundCooldown - (Time.time - lastSoundPlayTime):F2}s");
+            audioSource.PlayOneShot(shakeSound);
+            lastSoundPlayTime = Time.time;
         }
     }
 
     private void UpdateShakeCountText()
     {
         if (shakeCountText != null)
-        {
             shakeCountText.text = "シェイク回数: " + ShakeCount;
-        }
+    }
+
+    private void LogDebug(string message, bool isWarning = false)
+    {
+        if (!debugMode) return;
+        
+        if (isWarning)
+            Debug.LogWarning(message);
+        else
+            Debug.Log(message);
     }
 }
