@@ -19,11 +19,13 @@ public class ShakeDetector : MonoBehaviour
     private float lastSoundPlayTime;
     private Accelerometer accelerometer;
     private AudioSource audioSource;
+    private bool isInitialized = false;
 
     void Start()
     {
         SetupComponents();
         UpdateShakeCountText();
+        isInitialized = true;
         LogDebug("ShakeDetector initialized");
     }
 
@@ -62,11 +64,12 @@ public class ShakeDetector : MonoBehaviour
     private void SetupAudio()
     {
         audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.Stop(); // 既に再生中の場合は停止
         
         if (shakeSound != null)
         {
             audioSource.clip = shakeSound;
-            audioSource.playOnAwake = false;
         }
         else
         {
@@ -90,17 +93,24 @@ public class ShakeDetector : MonoBehaviour
 
     private void OnShakeDetected()
     {
-        ShakeCount++;
         lastShakeTime = Time.time;
-        UpdateShakeCountText();
-        PlayShakeSound();
-        LogDebug($"Shake detected! Total: {ShakeCount}");
+        
+        if (isInitialized)
+        {
+            bool soundPlayed = PlayShakeSound();
+            if (soundPlayed)
+            {
+                ShakeCount++;
+                UpdateShakeCountText();
+                LogDebug($"Shake detected! Total: {ShakeCount}");
+            }
+        }
     }
 
-    private void PlayShakeSound()
+    private bool PlayShakeSound()
     {
         if (audioSource == null || shakeSound == null) 
-            return;
+            return false;
 
         float soundCooldown = allowSoundOverlap ? 0.1f : shakeSound.length * 0.8f;
         bool canPlaySound = Time.time - lastSoundPlayTime > soundCooldown;
@@ -109,7 +119,10 @@ public class ShakeDetector : MonoBehaviour
         {
             audioSource.PlayOneShot(shakeSound);
             lastSoundPlayTime = Time.time;
+            return true;
         }
+        
+        return false;
     }
 
     private void UpdateShakeCountText()
