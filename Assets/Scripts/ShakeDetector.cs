@@ -1,17 +1,22 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using System;
 
 public class ShakeDetector : MonoBehaviour
 {
     public static int ShakeCount;
     public Text shakeCountText;
     
+    public event Action OnShakeDetected;
+    
     [SerializeField] private float shakeThreshold = 1.5f;
     [SerializeField] private float cooldownTime = 0.3f;
     [SerializeField] private bool debugMode = true;
     [SerializeField] private AudioClip shakeSound;
     [SerializeField] private bool allowSoundOverlap = false;
+    [SerializeField] private float vibrationDuration = 0.5f;
+    [SerializeField] private float vibrationIntensity = 5f;
 
     private Vector3 currentAcceleration;
     private Vector3 previousAcceleration;
@@ -20,11 +25,14 @@ public class ShakeDetector : MonoBehaviour
     private Accelerometer accelerometer;
     private AudioSource audioSource;
     private bool isInitialized = false;
+    
+    private Vector3 originalTextPosition;
+    private bool isVibrating = false;
+    private float vibrationStartTime;
 
     void Start()
     {
         SetupComponents();
-        UpdateShakeCountText();
         isInitialized = true;
         LogDebug("ShakeDetector initialized");
     }
@@ -33,16 +41,19 @@ public class ShakeDetector : MonoBehaviour
     {
 #if UNITY_EDITOR
         if (Keyboard.current?.spaceKey.wasPressedThisFrame == true)
-            OnShakeDetected();
+            HandleShakeDetected();
 #else
         CheckForShake();
 #endif
+        
+        UpdateTextVibration();
     }
 
     private void SetupComponents()
     {
         SetupAccelerometer();
         SetupAudio();
+        SetupTextVibration();
     }
 
     private void SetupAccelerometer()
@@ -63,17 +74,45 @@ public class ShakeDetector : MonoBehaviour
 
     private void SetupAudio()
     {
-        audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
-        audioSource.playOnAwake = false;
-        audioSource.Stop(); // 既に再生中の場合は停止
-        
-        if (shakeSound != null)
+        try
         {
-            audioSource.clip = shakeSound;
+            // あらかじめAudioSourceが存在するか確認
+            audioSource = GetComponent<AudioSource>();
+            
+            // AudioSourceが存在しない場合は新しく追加
+            if (audioSource == null)
+            {
+                audioSource = gameObject.AddComponent<AudioSource>();
+                Debug.Log("ShakeDetectorにAudioSourceを新規追加しました");
+            }
+            
+            // AudioSourceの設定
+            if (audioSource != null) 
+            {
+                audioSource.playOnAwake = false;
+                audioSource.Stop();
+                
+                if (shakeSound != null)
+                {
+                    audioSource.clip = shakeSound;
+                }
+                else
+                {
+                    LogDebug("Shake sound not assigned", true);
+                }
+            }
         }
-        else
+        catch (System.Exception ex)
         {
-            LogDebug("Shake sound not assigned", true);
+            Debug.LogError($"AudioSourceの初期化に失敗しました: {ex.Message}");
+        }
+    }
+
+    private void SetupTextVibration()
+    {
+        if (shakeCountText != null)
+        {
+            originalTextPosition = shakeCountText.rectTransform.localPosition;
         }
     }
 
@@ -85,25 +124,31 @@ public class ShakeDetector : MonoBehaviour
         previousAcceleration = currentAcceleration;
         currentAcceleration = accelerometer.acceleration.ReadValue();
         
-        float accelerationChange = (currentAcceleration - previousAcceleration).magnitude;
+        // 前回と今回の加速度の絶対値(magnitude)を比較
+        float currentMagnitude = currentAcceleration.magnitude;
+        float previousMagnitude = previousAcceleration.magnitude;
         
-        if (accelerationChange > shakeThreshold)
-            OnShakeDetected();
+        // 加速度が増加した場合のみ（加速のみ）検出
+        float accelerationDelta = currentMagnitude - previousMagnitude;
+        
+        if (accelerationDelta > shakeThreshold)
+            HandleShakeDetected();
     }
 
-    private void OnShakeDetected()
+    private void HandleShakeDetected()
     {
         lastShakeTime = Time.time;
         
         if (isInitialized)
         {
             bool soundPlayed = PlayShakeSound();
-            if (soundPlayed)
-            {
-                ShakeCount++;
-                UpdateShakeCountText();
-                LogDebug($"Shake detected! Total: {ShakeCount}");
-            }
+            // サウンドの再生結果に関わらず、常にシェイク検知を呼び出す
+            ShakeCount++;
+            StartTextVibration();
+            LogDebug($"Shake detected! Total: {ShakeCount}");
+            
+            // イベントを常に呼び出す
+            OnShakeDetected?.Invoke();
         }
     }
 
@@ -112,12 +157,10 @@ public class ShakeDetector : MonoBehaviour
         if (audioSource == null || shakeSound == null) 
             return false;
 
-        float soundCooldown = allowSoundOverlap ? 0.1f : shakeSound.length * 0.8f;
-        bool canPlaySound = Time.time - lastSoundPlayTime > soundCooldown;
-        
-        if (canPlaySound && (allowSoundOverlap || !audioSource.isPlaying))
+        if (!audioSource.isPlaying)
         {
-            audioSource.PlayOneShot(shakeSound);
+            audioSource.clip = shakeSound;
+            audioSource.Play();
             lastSoundPlayTime = Time.time;
             return true;
         }
@@ -125,10 +168,35 @@ public class ShakeDetector : MonoBehaviour
         return false;
     }
 
-    private void UpdateShakeCountText()
+    private void StartTextVibration()
     {
         if (shakeCountText != null)
-            shakeCountText.text = "シェイク回数: " + ShakeCount;
+        {
+            isVibrating = true;
+            vibrationStartTime = Time.time;
+        }
+    }
+
+    private void UpdateTextVibration()
+    {
+        if (!isVibrating || shakeCountText == null) return;
+
+        float elapsedTime = Time.time - vibrationStartTime;
+        
+        if (elapsedTime >= vibrationDuration)
+        {
+            isVibrating = false;
+            shakeCountText.rectTransform.localPosition = originalTextPosition;
+        }
+        else
+        {
+            Vector3 randomOffset = new Vector3(
+                UnityEngine.Random.Range(-vibrationIntensity, vibrationIntensity),
+                UnityEngine.Random.Range(-vibrationIntensity, vibrationIntensity),
+                0
+            );
+            shakeCountText.rectTransform.localPosition = originalTextPosition + randomOffset;
+        }
     }
 
     private void LogDebug(string message, bool isWarning = false)

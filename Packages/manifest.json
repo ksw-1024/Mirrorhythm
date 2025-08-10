@@ -1,5 +1,15 @@
 {
+  "scopedRegistries": [
+    {
+      "name": "Keijiro",
+      "url": "https://registry.npmjs.com",
+      "scopes": [
+        "jp.keijiro"
+      ]
+    }
+  ],
   "dependencies": {
+    "jp.keijiro.klak.timeline.midi": "1.0.5",
     "com.unity.adaptiveperformance.google.android": "5.1.5",
     "com.unity.collab-proxy": "2.8.2",
     "com.unity.feature.2d": "2.0.1",

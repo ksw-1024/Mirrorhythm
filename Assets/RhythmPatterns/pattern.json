@@ -1,0 +1,67 @@
+{
+  "patterns": [
+    {
+      "name": "level_1_single",
+      "pattern": [
+        1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0
+      ]
+    },
+    {
+      "name": "level_1_two_beats",
+      "pattern": [
+        1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0
+      ]
+    },
+    {
+      "name": "level_1_four_beats",
+      "pattern": [
+        1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0
+      ]
+    },
+    {
+      "name": "level_2_half_notes",
+      "pattern": [
+        1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0
+      ]
+    },
+    {
+      "name": "level_2_quarter_notes",
+      "pattern": [
+        1,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0
+      ]
+    },
+    {
+      "name": "level_2_strong_weak",
+      "pattern": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "level_3_eighth_pairs",
+      "pattern": [
+        1,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0
+      ]
+    },
+    {
+      "name": "level_3_dotted_quarter",
+      "pattern": [
+        1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0
+      ]
+    }
+  ]
+}

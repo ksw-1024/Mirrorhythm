@@ -9,8 +9,11 @@ EditorBuildSettings:
     path: Assets/Scenes/StartScene.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
   - enabled: 1
-    path: Assets/Scenes/GameScene.unity
+    path: Assets/Scenes/MenuScene.unity
     guid: 8895c0ed49a8c472bb6e846a7db68f28
+  - enabled: 1
+    path: Assets/Scenes/GameScene.unity
+    guid: 05c7fc56c0dcb4344af9e3f7466d7ac1
   m_configObjects:
     com.unity.adaptiveperformance.google.android.provider_settings: {fileID: 11400000, guid: b75ea27b137354a1c8e6488fcf59c2b0, type: 2}
     com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: d71cba5cc47c74b8ba90e9c9c13f2759, type: 2}
